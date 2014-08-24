@@ -1,0 +1,147 @@
+
+
+# Download data
+# merge training and test datasets. 
+# The merge.datasets function returns a list
+# of three dataframes: X, y, and subject
+# Extract only the measurements of the mean and standard 
+# deviation for each measurement
+# Name activities
+# Use descriptive column name for subjects
+# Combine data frames into one
+# Create tidy dataset csv
+# Write tidy dataset as csv
+
+
+
+workdir = "C:/Users/sutchi/Desktop/Cleandat/peerass/"
+
+    setwd(workdir)
+#
+# DOWNLOAD DATA
+# CHECK FOR DATA DIR AND CREATE ONE IF DOESN'T EXIST
+#
+START<-function(){
+#    
+# CREATING DATA FOLDER
+#
+    if (!file.exists("data")) {
+        message("Creating data directory")
+        dir.create("data")
+    }
+
+    else {message("Data directory already exists")
+         )
+    if (!file.exists("data/UCI HAR Dataset")) {
+        # download the data
+        fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+        zipfile="data/UCI_HAR_data.zip"
+        message("Downloading data")
+        download.file(fileURL, destfile=zipfile, )
+        unzip(zipfile, exdir="data")
+}
+    
+    
+# MERGING THE TRAINING AND TEST SETS TO CREATE ONE DATASET
+# READ features FROM features.txt
+    
+    features<-read.table("./data/UCI HAR Dataset/features.txt",stringsAsFactors=F)
+    
+    
+# READ activity labels FROM activity_labels.txt
+    activity_label<-read.table("./data/UCI HAR Dataset/activity_labels.txt",stringsAsFactors=F)
+    
+    
+# READ SUBJECTS FROM TESTING AND TRAINING 
+    testing_subjects<-read.table("./data/UCI HAR Dataset/test/subject_test.txt")
+    training_subjects<-read.table("./data/UCI HAR Dataset/train/subject_train.txt")
+    
+# COMBINE testing_subjects WITH tidy_dataset
+    tidy_dataset<-testing_subjects
+# ADD SUBJECTS FROM TRAINING DATA TO tidy_dataset
+    tidy_dataset<-rbind(tidy_dataset,training_subjects)
+    
+# CHANGE COLUMN NAME TO SUBJECTS
+    colnames(tidy_dataset)[1]<-"Subjects"  
+    
+#READ SUBJECT ACTIVITY FROM TESTING DATA
+    test_activity<-read.table("./data/UCI HAR Dataset/test/Y_test.txt")
+#READ SUBJECT ACTIVITY FROM TRAINING DATA
+    train_activity<-read.table("./data/UCI HAR Dataset/train/Y_train.txt")
+# ADD THE TESTING ACTIVITY    
+    subject_activity<-test_activity  
+    subject_activity<-rbind(subject_activity,train_activity) 
+    
+# CHANGE ACTIVITIES RENAMED BY THE activity_label DF
+    for(i in 1:nrow(tidy_dataset)){
+      index<-which(activity_label[,1] == subject_activity[i,1])
+      tidy_dataset$Activity[i]<-activity_label[index,2]
+    }
+    
+# READ FEATURE READINGS 561 FROM EACH SUBJECT OUT OF THE TESTING & TRAINING DF
+    test_feature_readings<-read.table("./data/UCI HAR Dataset/test/X_test.txt")
+    train_feature_readings<-read.table("./data/UCI HAR Dataset/train/X_train.txt")
+    
+    feature_readings<-test_feature_readings # Adding the feature readings of testing
+    feature_readings<-rbind(feature_readings,train_feature_readings) # Appending the feature readings of training
+    
+  
+# REPLACE THE 561 COLUMN NAMES WITH THEIR FEATURE NAMES FROM FEATURES DF  
+    
+    for(i in 1:ncol(feature_readings))
+    {
+      tidy_dataset<-cbind(tidy_dataset,feature_readings[,i])
+      names(tidy_dataset)[ncol(tidy_dataset)]<-features[i,2]
+    }
+           
+# EXTRACTING ONLY THE MEASUREMENTS ON THE MEAN AND STANDARD DEVIATION   
+# EXTRACT COLUMNS WITH THE MEAN & SD IN THEM
+
+    extract<-grep("(.*)(mean|std)[Freq]?(.*)[/(/)]$|(.*)(mean|std)(.*)()-[X|Y|Z]$",colnames(tidy_dataset),value=T)
+    
+# COMPINE WITH extract ABOVE
+
+    tidy_dataset<-tidy_dataset[,c("Subjects","Activity",extract)]
+    
+    
+# REPLACING THE ACTIVITY LABELS WITH DESCRIPTIVE NAMES
+    
+    tidy_dataset$Activity<-gsub("WALKING_UPSTAIRS","Walking Up",tidy_dataset$Activity)
+    tidy_dataset$Activity<-gsub("WALKING_DOWNSTAIRS","Walking Down",tidy_dataset$Activity)
+    tidy_dataset$Activity<-gsub("WALKING","Walking",tidy_dataset$Activity)
+    tidy_dataset$Activity<-gsub("SITTING","Sitting",tidy_dataset$Activity)
+    tidy_dataset$Activity<-gsub("STANDING","Standing",tidy_dataset$Activity)
+    tidy_dataset$Activity<-gsub("LAYING","Laying",tidy_dataset$Activity)
+    
+    
+# REPLACING THE COLUMN NAMES WITH DESCRIPTIVE NAMES    
+# REMOVE BACK SLASHES FROM COLUMN NAMES
+
+    colnames(tidy_dataset)<-gsub("[/(/)]","",colnames(tidy_dataset))
+    
+# REPLACE HYPHENS WITH UNDERSCORE
+
+    colnames(tidy_dataset)<-gsub("-","_",colnames(tidy_dataset))
+    
+    
+# AVERAGING THE VARIABLES ACROSS EACH ACTIVITY AND SUBJECT    
+# CHECK data.table PACK INSTALLED ELSE LOAD 
+    
+    if(!("data.table" %in% rownames(installed.packages()))){
+      install.packages("data.table")
+      library(data.table)
+    }else{
+      library(data.table)
+    }
+    
+# CONVERT THE DATA FRAME TO A DATA TABLE
+
+    tidy_dataset = data.table(tidy_dataset)
+   
+# PUT TOGETHER DATA AND ACTIVITY PERFORMED/SUBJECT 
+# TAKE MEAN OF ALL COLUMNS 
+    
+    tidy_dataset<-tidy_dataset[,lapply(.SD,mean),by='Subjects,Activity']
+    tidy_dataset<-tidy_dataset[order(tidy_dataset$Subjects),]     
+    write.csv(tidy_dataset,"Tidy_Data.csv",row.names=F)
+    write.table(tidy_dataset,"Tidy_Data.txt",row.names=F)
